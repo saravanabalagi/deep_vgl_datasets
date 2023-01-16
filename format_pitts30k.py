@@ -8,20 +8,27 @@ In datasets/pitts30k/raw_data there should be the following files/folders:
 import os
 import re
 import utm
-import shutil
 from tqdm import tqdm
-from os.path import join
 from scipy.io import loadmat
+import subprocess
 
 import util
 import map_builder
+import argparse
 
-datasets_folder = join(os.curdir, "datasets")
-dataset_name = "pitts30k"
-dataset_folder = join(datasets_folder, dataset_name)
-raw_data_folder = join(datasets_folder, dataset_name, "raw_data")
-os.makedirs(dataset_folder, exist_ok=True)
-os.makedirs(raw_data_folder, exist_ok=True)
+parser = argparse.ArgumentParser()
+parser.add_argument('--new_dataset_dir', type=str, default='datasets/pitts30k')
+parser.add_argument('--raw_dataset_dir', type=str, default='datasets/pitts30k/raw_data')
+args = parser.parse_args()
+
+dataset_folder = args.new_dataset_dir
+raw_data_folder = args.raw_dataset_dir
+# datasets_folder = join(os.curdir, "datasets")
+# dataset_name = "pitts30k"
+# dataset_folder = join(datasets_folder, dataset_name)
+# raw_data_folder = join(datasets_folder, dataset_name, "raw_data")
+# os.makedirs(dataset_folder, exist_ok=True)
+# os.makedirs(raw_data_folder, exist_ok=True)
 
 def copy_images(dst_folder, src_images_paths, utms):
     os.makedirs(dst_folder, exist_ok=True)
@@ -35,22 +42,28 @@ def copy_images(dst_folder, src_images_paths, utms):
         tile_num = pitch*24 + yaw
         dst_image_name = util.get_dst_image_name(latitude, longitude, pano_id=src_image_name.split("_")[0],
                                              tile_num=tile_num, note=note)
-        src_path = os.path.join(dataset_folder, 'raw_data', src_image_path)
+        src_path = os.path.join(raw_data_folder, src_image_path)
         dst_path = os.path.join(dst_folder, dst_image_name)
-        shutil.move(src_path, dst_path)
+
+        # create symlink
+        cmd = "ln -s {} {}".format(src_path, dst_path)
+        subprocess.call(cmd, shell=True)
+        # shutil.move(src_path, dst_path)
 
 
 for dataset in ["train", "val", "test"]:
-    matlab_struct_file_path = os.path.join(dataset_folder, "raw_data", "datasets", f"pitts30k_{dataset}.mat")
+    matlab_struct_file_path = os.path.join(raw_data_folder, "datasets", f"pitts30k_{dataset}.mat")
     mat_struct = loadmat(matlab_struct_file_path)["dbStruct"].item()
     # Database
     g_images = [f[0].item() for f in mat_struct[1]]
     g_utms = mat_struct[2].T
-    copy_images(os.path.join(dataset_folder, 'images', dataset, 'database'), g_images, g_utms)
+    g_dst = os.path.join(dataset_folder, 'images', dataset, 'database')
+    copy_images(g_dst, g_images, g_utms)
     # Queries
     q_images = [os.path.join("queries_real", f"{f[0].item()}") for f in mat_struct[3]]
     q_utms = mat_struct[4].T
-    copy_images(os.path.join(dataset_folder, 'images', dataset, 'queries'), q_images, q_utms)
+    q_dst = os.path.join(dataset_folder, 'images', dataset, 'queries')
+    copy_images(q_dst, q_images, q_utms)
 
 map_builder.build_map_from_dataset(dataset_folder)
-shutil.rmtree(raw_data_folder)
+# shutil.rmtree(raw_data_folder)

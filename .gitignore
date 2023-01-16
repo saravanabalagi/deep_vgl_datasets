@@ -7,5 +7,10 @@ z_others
 datasets
 .spyproject
 __pycache__
+.venv
+.ipynb_checkpoints
 map_*.png
 tmp
+data
+
+run_*.sh
